@@ -189,10 +189,12 @@ import { ValidationBehavior } from './behaviors/validation.behavior';
 
 @Module({
   imports: [
-    MediatorModule.forRoot([
-      LoggingBehavior, // Runs first
-      ValidationBehavior, // Runs second
-    ]),
+    MediatorModule.forRoot({
+      pipelineBehaviors: [
+        LoggingBehavior, // Runs first
+        ValidationBehavior, // Runs second
+      ],
+    }),
   ],
 })
 export class AppModule {}
@@ -317,7 +319,11 @@ import { LoggingBehavior } from './behaviors/logging.behavior';
 import { CreateUserValidator } from './commands/create-user.validator';
 
 @Module({
-  imports: [MediatorModule.forRoot([LoggingBehavior, ValidationBehavior])],
+  imports: [
+    MediatorModule.forRoot({
+      pipelineBehaviors: [LoggingBehavior, ValidationBehavior],
+    }),
+  ],
   providers: [CreateUserValidator], // Register validators as providers
 })
 export class AppModule {}
@@ -329,7 +335,15 @@ Now any validator decorated with `@ValidatorFor(CommandOrQuery)` will be automat
 
 ### MediatorModule
 
-- `forRoot(behaviors?: Type<IPipelineBehavior>[])` - Configures the mediator with optional pipeline behaviors
+- `forRoot(options?: IMediatorOptions)` - Configures the mediator with optional pipeline behaviors
+
+### IMediatorOptions
+
+```typescript
+interface IMediatorOptions {
+  pipelineBehaviors: Type<IPipelineBehavior>[];
+}
+```
 
 ### Mediator
 
