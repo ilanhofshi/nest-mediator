@@ -1,23 +1,25 @@
-import { DynamicModule, Module, Type } from '@nestjs/common';
+import { DynamicModule, Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { Mediator } from './mediator';
 import { PipelineBehaviorInvoker } from './pipeline.behavior.handler';
-import { IPipelineBehavior } from './interfaces';
+import { IMediatorOptions, IPipelineBehavior } from './interfaces';
 
 export const PIPELINE_BEHAVIORS = Symbol('PIPELINE_BEHAVIORS');
 
 @Module({})
 export class MediatorModule {
-  static forRoot(behaviors: Type<IPipelineBehavior>[] = []): DynamicModule {
+  static forRoot(options?: IMediatorOptions): DynamicModule {
+    const pipelineBehaviors = options?.pipelineBehaviors || [];
+
     return {
       module: MediatorModule,
       imports: [CqrsModule.forRoot()],
       providers: [
-        ...behaviors,
+        ...pipelineBehaviors,
         {
           provide: PIPELINE_BEHAVIORS,
           useFactory: (...pipes: IPipelineBehavior[]) => pipes,
-          inject: behaviors,
+          inject: pipelineBehaviors,
         },
         {
           provide: PipelineBehaviorInvoker,

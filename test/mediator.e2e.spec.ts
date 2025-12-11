@@ -98,11 +98,13 @@ describe('MediatorModule (e2e)', () => {
 
     module = await Test.createTestingModule({
       imports: [
-        MediatorModule.forRoot([
-          LoggingBehavior,
-          ValidationBehavior,
-          TimingBehavior,
-        ]),
+        MediatorModule.forRoot({
+          pipelineBehaviors: [
+            LoggingBehavior,
+            ValidationBehavior,
+            TimingBehavior,
+          ],
+        }),
       ],
       providers: [TestCommandHandler, TestQueryHandler],
     }).compile();
