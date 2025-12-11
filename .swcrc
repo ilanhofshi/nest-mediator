@@ -1,0 +1,23 @@
+{
+  "jsc": {
+    "parser": {
+      "syntax": "typescript",
+      "tsx": false,
+      "decorators": true
+    },
+    "transform": {
+      "legacyDecorator": true,
+      "decoratorMetadata": true
+    },
+    "target": "es2020",
+    "loose":true,
+    "keepClassNames": true
+  },
+  "module": {
+    "type": "es6",
+    "noInterop": false,
+    "strict": false,
+    "strictMode": false
+  },
+  "minify":false
+}

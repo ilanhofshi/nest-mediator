@@ -1,1 +1,2 @@
-export * from './pipeline.behavior';
+export * from './pipeline-behavior.interface';
+export * from './pipeline-behavior-handler.interface';
