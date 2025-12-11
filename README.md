@@ -200,6 +200,114 @@ export class AppModule {}
 
 Behaviors execute in the order they are registered, wrapping around the actual command/query handler.
 
+### Validation Behavior with Joi
+
+Create a validation behavior that uses Joi schemas attached via decorators:
+
+#### 1. Create the JoiSchema Decorator
+
+```typescript
+// decorators/joi-schema.decorator.ts
+import { Schema } from 'joi';
+
+const JOI_SCHEMA_KEY = Symbol('JOI_SCHEMA');
+
+export function JoiSchema(schema: Schema): ClassDecorator {
+  return (target) => {
+    Reflect.defineMetadata(JOI_SCHEMA_KEY, schema, target);
+  };
+}
+
+export function getJoiSchema(target: object): Schema | undefined {
+  return Reflect.getMetadata(JOI_SCHEMA_KEY, target.constructor);
+}
+```
+
+#### 2. Create the Validation Behavior
+
+```typescript
+// behaviors/validation.behavior.ts
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { IPipelineBehavior } from 'nest-mediator';
+import { Command, Query } from '@nestjs/cqrs';
+import { getJoiSchema } from '../decorators/joi-schema.decorator';
+
+@Injectable()
+export class ValidationBehavior implements IPipelineBehavior {
+  async handle<T>(
+    request: Command<T> | Query<T>,
+    next: () => Promise<T>,
+  ): Promise<T> {
+    const schema = getJoiSchema(request);
+
+    if (schema) {
+      const { error, value } = schema.validate(request, {
+        abortEarly: false,
+        stripUnknown: true,
+      });
+
+      if (error) {
+        const messages = error.details.map((detail) => detail.message);
+        throw new BadRequestException({
+          message: 'Validation failed',
+          errors: messages,
+        });
+      }
+
+      // Optionally assign validated values back to request
+      Object.assign(request, value);
+    }
+
+    return next();
+  }
+}
+```
+
+#### 3. Apply Schema to Commands/Queries
+
+```typescript
+// commands/create-user.command.ts
+import { Command } from '@nestjs/cqrs';
+import * as Joi from 'joi';
+import { JoiSchema } from '../decorators/joi-schema.decorator';
+
+@JoiSchema(
+  Joi.object({
+    name: Joi.string().min(2).max(50).required(),
+    email: Joi.string().email().required(),
+  }),
+)
+export class CreateUserCommand extends Command<{ id: string; name: string }> {
+  constructor(
+    public readonly name: string,
+    public readonly email: string,
+  ) {
+    super();
+  }
+}
+```
+
+#### 4. Register the Validation Behavior
+
+```typescript
+import { Module } from '@nestjs/common';
+import { MediatorModule } from 'nest-mediator';
+import { ValidationBehavior } from './behaviors/validation.behavior';
+import { LoggingBehavior } from './behaviors/logging.behavior';
+
+@Module({
+  imports: [
+    MediatorModule.forRoot([
+      LoggingBehavior,
+      ValidationBehavior, // Validation runs after logging
+    ]),
+  ],
+})
+export class AppModule {}
+```
+
+Now any command or query decorated with `@JoiSchema()` will be automatically validated before the handler executes.
+
 ## API
 
 ### MediatorModule
