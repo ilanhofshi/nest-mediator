@@ -32,6 +32,99 @@ import { MediatorModule } from 'nest-mediator';
 export class AppModule {}
 ```
 
+### Creating Commands
+
+Commands represent actions that change state. Create a command class and its handler:
+
+```typescript
+// commands/create-user.command.ts
+import { Command } from '@nestjs/cqrs';
+
+export class CreateUserCommand extends Command<{ id: string; name: string }> {
+  constructor(
+    public readonly name: string,
+    public readonly email: string,
+  ) {
+    super();
+  }
+}
+```
+
+```typescript
+// commands/create-user.handler.ts
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { CreateUserCommand } from './create-user.command';
+
+@CommandHandler(CreateUserCommand)
+export class CreateUserHandler implements ICommandHandler<CreateUserCommand> {
+  async execute(command: CreateUserCommand) {
+    // Your business logic here
+    const user = {
+      id: 'generated-id',
+      name: command.name,
+      email: command.email,
+    };
+    // Save to database, etc.
+    return { id: user.id, name: user.name };
+  }
+}
+```
+
+### Creating Queries
+
+Queries represent read operations that don't change state:
+
+```typescript
+// queries/get-user.query.ts
+import { Query } from '@nestjs/cqrs';
+
+export class GetUserQuery extends Query<{
+  id: string;
+  name: string;
+  email: string;
+} | null> {
+  constructor(public readonly userId: string) {
+    super();
+  }
+}
+```
+
+```typescript
+// queries/get-user.handler.ts
+import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
+import { GetUserQuery } from './get-user.query';
+
+@QueryHandler(GetUserQuery)
+export class GetUserHandler implements IQueryHandler<GetUserQuery> {
+  async execute(query: GetUserQuery) {
+    // Your business logic here
+    // Fetch from database, etc.
+    return {
+      id: query.userId,
+      name: 'John Doe',
+      email: 'john@example.com',
+    };
+  }
+}
+```
+
+### Registering Handlers
+
+Don't forget to register your handlers as providers in your module:
+
+```typescript
+import { Module } from '@nestjs/common';
+import { MediatorModule } from 'nest-mediator';
+import { CreateUserHandler } from './commands/create-user.handler';
+import { GetUserHandler } from './queries/get-user.handler';
+
+@Module({
+  imports: [MediatorModule.forRoot()],
+  providers: [CreateUserHandler, GetUserHandler],
+})
+export class UserModule {}
+```
+
 ### Using the Mediator
 
 Inject the `Mediator` service and use it to execute commands and queries:
@@ -40,13 +133,20 @@ Inject the `Mediator` service and use it to execute commands and queries:
 import { Injectable } from '@nestjs/common';
 import { Mediator } from 'nest-mediator';
 import { CreateUserCommand } from './commands/create-user.command';
+import { GetUserQuery } from './queries/get-user.query';
 
 @Injectable()
 export class UserService {
   constructor(private readonly mediator: Mediator) {}
 
   async createUser(name: string, email: string) {
+    // Execute a command (write operation)
     return this.mediator.execute(new CreateUserCommand(name, email));
+  }
+
+  async getUser(userId: string) {
+    // Execute a query (read operation)
+    return this.mediator.execute(new GetUserQuery(userId));
   }
 }
 ```
