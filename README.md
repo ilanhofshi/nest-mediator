@@ -202,51 +202,68 @@ Behaviors execute in the order they are registered, wrapping around the actual c
 
 ### Validation Behavior with Joi
 
-Create a validation behavior using separate validator classes with Joi schemas:
+Create a validation behavior using separate validator classes with Joi schemas. The decorator is placed on the validator class (similar to `@CommandHandler`):
 
-#### 1. Create the Validator Decorator
+#### 1. Create the ValidatorFor Decorator
 
 ```typescript
-// decorators/validator.decorator.ts
+// decorators/validator-for.decorator.ts
 import { Type } from '@nestjs/common';
-import { IValidator } from '../interfaces/validator.interface';
-
-const VALIDATOR_KEY = Symbol('VALIDATOR');
-
-export function Validator(validator: Type<IValidator>): ClassDecorator {
-  return (target) => {
-    Reflect.defineMetadata(VALIDATOR_KEY, validator, target);
-  };
-}
-
-export function getValidator(target: object): Type<IValidator> | undefined {
-  return Reflect.getMetadata(VALIDATOR_KEY, target.constructor);
-}
-```
-
-#### 2. Create the Validator Interface
-
-```typescript
-// interfaces/validator.interface.ts
+import { Command, Query } from '@nestjs/cqrs';
 import { Schema } from 'joi';
 
 export interface IValidator {
   schema: Schema;
 }
+
+type RequestType = Type<Command<unknown> | Query<unknown>>;
+
+const validatorRegistry = new Map<RequestType, Type<IValidator>>();
+
+export function ValidatorFor(request: RequestType): ClassDecorator {
+  return (target) => {
+    validatorRegistry.set(request, target as Type<IValidator>);
+  };
+}
+
+export function getValidatorFor(request: object): Type<IValidator> | undefined {
+  return validatorRegistry.get(request.constructor as RequestType);
+}
 ```
 
-#### 3. Create a Validator Class
+#### 2. Create the Validator Class
 
 ```typescript
 // commands/create-user.validator.ts
 import * as Joi from 'joi';
-import { IValidator } from '../interfaces/validator.interface';
+import {
+  ValidatorFor,
+  IValidator,
+} from '../decorators/validator-for.decorator';
+import { CreateUserCommand } from './create-user.command';
 
+@ValidatorFor(CreateUserCommand)
 export class CreateUserValidator implements IValidator {
   schema = Joi.object({
     name: Joi.string().min(2).max(50).required(),
     email: Joi.string().email().required(),
   });
+}
+```
+
+#### 3. Create the Command (no decorator needed)
+
+```typescript
+// commands/create-user.command.ts
+import { Command } from '@nestjs/cqrs';
+
+export class CreateUserCommand extends Command<{ id: string; name: string }> {
+  constructor(
+    public readonly name: string,
+    public readonly email: string,
+  ) {
+    super();
+  }
 }
 ```
 
@@ -257,7 +274,7 @@ export class CreateUserValidator implements IValidator {
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { IPipelineBehavior } from 'nest-mediator';
 import { Command, Query } from '@nestjs/cqrs';
-import { getValidator } from '../decorators/validator.decorator';
+import { getValidatorFor } from '../decorators/validator-for.decorator';
 
 @Injectable()
 export class ValidationBehavior implements IPipelineBehavior {
@@ -265,7 +282,7 @@ export class ValidationBehavior implements IPipelineBehavior {
     request: Command<T> | Query<T>,
     next: () => Promise<T>,
   ): Promise<T> {
-    const ValidatorClass = getValidator(request);
+    const ValidatorClass = getValidatorFor(request);
 
     if (ValidatorClass) {
       const validator = new ValidatorClass();
@@ -290,45 +307,23 @@ export class ValidationBehavior implements IPipelineBehavior {
 }
 ```
 
-#### 5. Apply Validator to Commands/Queries
-
-```typescript
-// commands/create-user.command.ts
-import { Command } from '@nestjs/cqrs';
-import { Validator } from '../decorators/validator.decorator';
-import { CreateUserValidator } from './create-user.validator';
-
-@Validator(CreateUserValidator)
-export class CreateUserCommand extends Command<{ id: string; name: string }> {
-  constructor(
-    public readonly name: string,
-    public readonly email: string,
-  ) {
-    super();
-  }
-}
-```
-
-#### 6. Register the Validation Behavior
+#### 5. Register Validators and Behavior
 
 ```typescript
 import { Module } from '@nestjs/common';
 import { MediatorModule } from 'nest-mediator';
 import { ValidationBehavior } from './behaviors/validation.behavior';
 import { LoggingBehavior } from './behaviors/logging.behavior';
+import { CreateUserValidator } from './commands/create-user.validator';
 
 @Module({
-  imports: [
-    MediatorModule.forRoot([
-      LoggingBehavior,
-      ValidationBehavior, // Validation runs after logging
-    ]),
-  ],
+  imports: [MediatorModule.forRoot([LoggingBehavior, ValidationBehavior])],
+  providers: [CreateUserValidator], // Register validators as providers
 })
 export class AppModule {}
 ```
 
-Now any command or query decorated with `@Validator()` will be automatically validated using the specified validator class before the handler executes.
+Now any validator decorated with `@ValidatorFor(CommandOrQuery)` will be automatically used to validate the corresponding command or query before the handler executes.
 
 ## API
 
