@@ -151,6 +151,54 @@ export class UserService {
 }
 ```
 
+### Execute Options
+
+You can pass options to the `execute` method that will be forwarded to all pipeline behaviors:
+
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private readonly mediator: Mediator) {}
+
+  async createUser(name: string, email: string) {
+    // Pass options to pipeline behaviors
+    return this.mediator.execute(new CreateUserCommand(name, email), {
+      skipValidation: true,
+      userId: 'admin-123',
+    });
+  }
+
+  async getUser(userId: string) {
+    // Pass caching options
+    return this.mediator.execute(new GetUserQuery(userId), {
+      cache: true,
+      ttl: 3600,
+    });
+  }
+}
+```
+
+Behaviors can then use these options to conditionally execute logic:
+
+```typescript
+@Injectable()
+export class ConditionalValidationBehavior implements IPipelineBehavior {
+  async handle<T>(
+    request: Command<T> | Query<T>,
+    next: () => Promise<T>,
+    options?: { skipValidation?: boolean },
+  ): Promise<T> {
+    if (options?.skipValidation) {
+      // Skip validation and proceed directly
+      return next();
+    }
+
+    // Perform validation...
+    return next();
+  }
+}
+```
+
 ### Pipeline Behaviors
 
 Pipeline behaviors allow you to add cross-cutting concerns like logging, validation, or transactions:
@@ -347,7 +395,7 @@ interface IMediatorOptions {
 
 ### Mediator
 
-- `execute<T>(commandOrQuery: Command<T> | Query<T>): Promise<T>` - Executes a command or query through the pipeline
+- `execute<T>(commandOrQuery: Command<T> | Query<T>, options?: any): Promise<T>` - Executes a command or query through the pipeline with optional options passed to behaviors
 
 ### IPipelineBehavior
 
@@ -355,7 +403,11 @@ Interface for implementing pipeline behaviors:
 
 ```typescript
 interface IPipelineBehavior {
-  handle<T>(request: Command<T> | Query<T>, next: () => Promise<T>): Promise<T>;
+  handle<T>(
+    request: Command<T> | Query<T>,
+    next: () => Promise<T>,
+    options?: any,
+  ): Promise<T>;
 }
 ```
 

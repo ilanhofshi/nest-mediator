@@ -15,14 +15,19 @@ export class Mediator {
    * @param commandOrQuery - The command or query to execute
    * @returns Promise resolving to the result of the command or query
    */
-  execute<X>(commandOrQuery: Command<X> | Query<X>): Promise<X> {
+  execute<X>(commandOrQuery: Command<X> | Query<X>, options?: any): Promise<X> {
     if (commandOrQuery instanceof Command) {
-      return this.pipelineBehaviorInvoker.invoke(commandOrQuery, () =>
-        this.commandBus.execute(commandOrQuery),
+      return this.pipelineBehaviorInvoker.invoke(
+        commandOrQuery,
+        () => this.commandBus.execute(commandOrQuery),
+        options,
+      );
+    } else {
+      return this.pipelineBehaviorInvoker.invoke(
+        commandOrQuery,
+        () => this.queryBus.execute(commandOrQuery),
+        options,
       );
     }
-    return this.pipelineBehaviorInvoker.invoke(commandOrQuery, () =>
-      this.queryBus.execute(commandOrQuery),
-    );
   }
 }

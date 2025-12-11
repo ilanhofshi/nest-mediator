@@ -24,21 +24,25 @@ export class PipelineBehaviorInvoker {
   invoke<X>(
     request: Command<X> | Query<X>,
     final: () => Promise<X>,
+    options?: any,
   ): Promise<X> {
-    return this.invokeNext(request, this.handlers[0], final);
+    return this.invokeNext(request, this.handlers[0], final, options);
   }
 
   invokeNext<X>(
     request: Command<X> | Query<X>,
     pipeHandler: IPipelineBehaviorHandler,
     final: () => Promise<X>,
+    options?: any,
   ): Promise<X> {
     if (!pipeHandler) {
       return final();
     }
 
-    return pipeHandler.pipe.handle<X>(request, () =>
-      this.invokeNext<X>(request, pipeHandler.next!, final),
+    return pipeHandler.pipe.handle<X>(
+      request,
+      () => this.invokeNext<X>(request, pipeHandler.next!, final, options),
+      options,
     );
   }
 }
