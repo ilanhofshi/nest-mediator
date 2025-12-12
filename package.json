@@ -1,6 +1,6 @@
 {
   "name": "nest-mediator",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A mediator pattern implementation for NestJS with pipeline behaviors support",
   "author": "Ilan Hofshi",
   "license": "MIT",
