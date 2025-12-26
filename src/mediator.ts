@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CommandBus, QueryBus, Command, Query } from '@nestjs/cqrs';
+import { CommandBus, QueryBus, Command, Query, EventBus } from '@nestjs/cqrs';
 import { PipelineBehaviorInvoker } from './pipeline.behavior.handler';
 
 @Injectable()
@@ -7,6 +7,7 @@ export class Mediator {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    private readonly eventBus: EventBus,
     private readonly pipelineBehaviorInvoker: PipelineBehaviorInvoker,
   ) {}
 
@@ -29,5 +30,9 @@ export class Mediator {
         options,
       );
     }
+  }
+
+  publish(event: Event): void {
+    this.eventBus.publish(event);
   }
 }
